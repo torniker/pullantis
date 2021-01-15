@@ -2,31 +2,15 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
+
+	"github.com/google/go-github/github"
 )
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		fmt.Println("method not allowed")
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("----------------------")
-	fmt.Println(string(body))
-
-	fmt.Fprintf(w, "Hi there, I love %s!", r.URL.Path[1:])
-}
-
-// supersecretstring
 func main() {
 	fmt.Println("main")
-	http.HandleFunc("/", handler)
+	http.HandleFunc("/", HookHandler)
 	log.Fatal(http.ListenAndServe(":9999", nil))
 
 	// ctx := context.Background()
@@ -46,4 +30,39 @@ func main() {
 	// }
 	// for repos
 	// fmt.Println(repos)
+}
+
+// HookHandler parses GitHub webhooks and sends an update to corresponding channel
+func HookHandler(w http.ResponseWriter, r *http.Request) {
+	payload, err := github.ValidatePayload(r, []byte("supersecretstring"))
+	if err != nil {
+		log.Printf("error validating request body: err=%s\n", err)
+		return
+	}
+	defer r.Body.Close()
+
+	event, err := github.ParseWebHook(github.WebHookType(r), payload)
+	if err != nil {
+		log.Printf("could not parse webhook: err=%s\n", err)
+		return
+	}
+
+	log.Printf("received event: %v\n", event)
+
+	// switch e := event.(type) {
+	// case *github.PushEvent:
+	// 	// this is a commit push, do something with it
+	// case *github.PullRequestEvent:
+	// 	// this is a pull request, do something with it
+	// case *github.WatchEvent:
+	// 	// https://developer.github.com/v3/activity/events/types/#watchevent
+	// 	// someone starred our repository
+	// 	if e.Action != nil && *e.Action == "starred" {
+	// 		fmt.Printf("%s starred repository %s\n",
+	// 			*e.Sender.Login, *e.Repo.FullName)
+	// 	}
+	// default:
+	// 	log.Printf("unknown event type %s\n", github.WebHookType(r))
+	// 	return
+	// }
 }
