@@ -8,9 +8,15 @@ import (
 	"github.com/google/go-github/github"
 )
 
+type PullRequest struct {
+	SHA string
+}
+
 func main() {
-	fmt.Println("main")
-	http.HandleFunc("/", HookHandler)
+
+	prChan := make(chan PullRequest)
+	listener(prChan)
+	http.HandleFunc("/", HookHandler(prChan))
 	log.Fatal(http.ListenAndServe(":9999", nil))
 
 	// ctx := context.Background()
@@ -32,31 +38,46 @@ func main() {
 	// fmt.Println(repos)
 }
 
+func listener(prChan chan PullRequest) {
+	for {
+		select {
+		case p := <-prChan:
+			log.Printf("listener got event %v\n", p)
+		}
+	}
+}
+
 // HookHandler parses GitHub webhooks and sends an update to corresponding channel
-func HookHandler(w http.ResponseWriter, r *http.Request) {
-	payload, err := github.ValidatePayload(r, []byte("supersecretstring"))
-	if err != nil {
-		log.Printf("error validating request body: err=%s\n", err)
-		return
-	}
-	defer r.Body.Close()
+func HookHandler(prChan chan<- PullRequest) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := github.ValidatePayload(r, []byte("supersecretstring"))
+		if err != nil {
+			log.Printf("error validating request body: err=%s\n", err)
+			return
+		}
+		defer r.Body.Close()
 
-	event, err := github.ParseWebHook(github.WebHookType(r), payload)
-	if err != nil {
-		log.Printf("could not parse webhook: err=%s\n", err)
-		return
-	}
-	// log.Printf("received event: %v\n", event)
+		event, err := github.ParseWebHook(github.WebHookType(r), payload)
+		if err != nil {
+			log.Printf("could not parse webhook: err=%s\n", err)
+			return
+		}
 
-	switch e := event.(type) {
-	case *github.PullRequestEvent:
-		log.Printf("received PullRequestEvent: %v\n", e)
-	case *github.PullRequestReviewEvent:
-		log.Printf("received PullRequestReviewEvent: %v\n", e)
-	case *github.PullRequestReviewCommentEvent:
-		log.Printf("received PullRequestReviewCommentEvent: %v\n", e)
-	default:
-		log.Printf("unknown event type %s\n", github.WebHookType(r))
-		return
+		// log.Printf("received event: %v\n", event)
+		switch e := event.(type) {
+		case *github.PullRequestEvent:
+			log.Printf("received PullRequestEvent: %v\n", e)
+			pr := PullRequest{
+				SHA: *e.PullRequest.Head.SHA,
+			}
+			fmt.Printf("pull request head SHA: %v\n", pr)
+		case *github.PullRequestReviewEvent:
+			log.Printf("received PullRequestReviewEvent: %v\n", e)
+		case *github.PullRequestReviewCommentEvent:
+			log.Printf("received PullRequestReviewCommentEvent: %v\n", e)
+		default:
+			log.Printf("unknown event type %s\n", github.WebHookType(r))
+			return
+		}
 	}
 }
