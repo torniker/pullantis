@@ -46,23 +46,17 @@ func HookHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("could not parse webhook: err=%s\n", err)
 		return
 	}
-
 	log.Printf("received event: %v\n", event)
 
-	// switch e := event.(type) {
-	// case *github.PushEvent:
-	// 	// this is a commit push, do something with it
-	// case *github.PullRequestEvent:
-	// 	// this is a pull request, do something with it
-	// case *github.WatchEvent:
-	// 	// https://developer.github.com/v3/activity/events/types/#watchevent
-	// 	// someone starred our repository
-	// 	if e.Action != nil && *e.Action == "starred" {
-	// 		fmt.Printf("%s starred repository %s\n",
-	// 			*e.Sender.Login, *e.Repo.FullName)
-	// 	}
-	// default:
-	// 	log.Printf("unknown event type %s\n", github.WebHookType(r))
-	// 	return
-	// }
+	switch e := event.(type) {
+	case *github.PullRequestEvent:
+		log.Printf("received PullRequestEvent: %v\n", e)
+	case *github.PullRequestReviewEvent:
+		log.Printf("received PullRequestReviewEvent: %v\n", e)
+	case *github.PullRequestReviewCommentEvent:
+		log.Printf("received PullRequestReviewCommentEvent: %v\n", e)
+	default:
+		log.Printf("unknown event type %s\n", github.WebHookType(r))
+		return
+	}
 }
