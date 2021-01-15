@@ -46,7 +46,7 @@ func HookHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("could not parse webhook: err=%s\n", err)
 		return
 	}
-	log.Printf("received event: %v\n", event)
+	// log.Printf("received event: %v\n", event)
 
 	switch e := event.(type) {
 	case *github.PullRequestEvent:
