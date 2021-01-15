@@ -15,7 +15,7 @@ type PullRequest struct {
 func main() {
 
 	prChan := make(chan PullRequest)
-	listener(prChan)
+	go listener(prChan)
 	http.HandleFunc("/", HookHandler(prChan))
 	log.Fatal(http.ListenAndServe(":9999", nil))
 
