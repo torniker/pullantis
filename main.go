@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
@@ -66,13 +65,12 @@ func HookHandler(prChan chan<- PullRequest) http.HandlerFunc {
 		// log.Printf("received event: %v\n", event)
 		switch e := event.(type) {
 		case *github.PullRequestEvent:
-			log.Printf("received PullRequestEvent: %v\n", e)
-			pr := PullRequest{
+			// log.Printf("received PullRequestEvent: %v\n", e)
+			prChan <- PullRequest{
 				SHA: *e.PullRequest.Head.SHA,
 			}
-			fmt.Printf("pull request head SHA: %v\n", pr)
-		case *github.PullRequestReviewEvent:
-			log.Printf("received PullRequestReviewEvent: %v\n", e)
+		// case *github.PullRequestReviewEvent:
+		// 	log.Printf("received PullRequestReviewEvent: %v\n", e)
 		case *github.PullRequestReviewCommentEvent:
 			log.Printf("received PullRequestReviewCommentEvent: %v\n", e)
 		default:
