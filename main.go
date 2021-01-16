@@ -46,7 +46,7 @@ func listener(prChan chan PullRequest) {
 			}
 			ctx := context.Background()
 			ts := oauth2.StaticTokenSource(
-				&oauth2.Token{AccessToken: "6b1e52821a1779977337966a2b2fd97c108cbdd9"},
+				&oauth2.Token{AccessToken: "593b2ee54a2fa706f054560194f48128ecb788f1"},
 			)
 			client := github.NewClient(oauth2.NewClient(ctx, ts))
 			msg := "test comment"
