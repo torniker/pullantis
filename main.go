@@ -50,9 +50,11 @@ func listener(prChan chan PullRequest) {
 			)
 			client := github.NewClient(oauth2.NewClient(ctx, ts))
 			msg := "Result of pulumi preview"
+			event := "COMMENT"
 			newComment := &github.PullRequestReviewRequest{
 				Body:     &msg,
 				CommitID: &pr.SHA,
+				Event:    &event,
 			}
 			// ctx context.Context, owner, repo string, number int, review *PullRequestReviewRequest
 			_, _, err = client.PullRequests.CreateReview(context.Background(), pr.Owner, pr.Repo, pr.Number, newComment)
