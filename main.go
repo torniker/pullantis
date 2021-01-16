@@ -23,7 +23,7 @@ func listener(prChan chan PullRequest) {
 	for {
 		select {
 		case p := <-prChan:
-			log.Printf("listener got event, with repo URL: %#v\n", p.Repo)
+			log.Printf("listener got event: %#v\n", p.SHA)
 		}
 	}
 }
