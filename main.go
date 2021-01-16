@@ -2,79 +2,46 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/google/go-github/github"
 	"golang.org/x/oauth2"
 )
 
-type PullRequest struct {
-	Owner  string
-	Repo   string
-	Number int
-	SHA    string
-	URL    string
-}
-
 func main() {
-	prChan := make(chan PullRequest)
+	prChan := make(chan *PullRequest)
 	go listener(prChan)
 	http.HandleFunc("/", HookHandler(prChan))
 	log.Fatal(http.ListenAndServe(":9999", nil))
 }
 
-func listener(prChan chan PullRequest) {
+func listener(prChan chan *PullRequest) {
 	for {
 		select {
 		case pr := <-prChan:
-			zipFile, err := pr.DownloadRepoZip("./tmp")
+			err := pr.Process()
 			if err != nil {
-				log.Printf("error downloading: %s", err)
-				continue
+				log.Printf("error Process: %s", err)
 			}
-			_, err = Unzip(*zipFile, fmt.Sprintf("./tmp/%s", pr.SHA))
-			if err != nil {
-				log.Printf("error unziping: %s", err)
-				continue
-			}
-			ctx := context.Background()
-			ts := oauth2.StaticTokenSource(
-				&oauth2.Token{AccessToken: os.Getenv("GITHUB_AUTH_TOKEN")},
-			)
-			client := github.NewClient(oauth2.NewClient(ctx, ts))
-			msg := "Result of pulumi preview"
-			event := "COMMENT"
-			newComment := &github.PullRequestReviewRequest{
-				Body:     &msg,
-				CommitID: &pr.SHA,
-				Event:    &event,
-			}
-			// github.ErrorResponse{Response:(*http.Response)(0xc0001941b0), Message:"Unprocessable Entity", Errors:[]github.Error{github.Error{Resource:"", Field:"", Code:"", Message:""}}, Block:(*struct { Reason string "json:\"reason,omitempty\""; CreatedAt *github.Timestamp "json:\"created_at,omitempty\"" })(nil), DocumentationURL:"https://docs.github.com/rest/reference/pulls#create-a-review-for-a-pull-request"}
-			// ctx context.Context, owner, repo string, number int, review *PullRequestReviewRequest
-			_, _, err = client.PullRequests.CreateReview(context.Background(), pr.Owner, pr.Repo, pr.Number, newComment)
-			if err != nil {
-				if er, ok := err.(*github.ErrorResponse); ok {
-					log.Printf("%#v\n", er.Message)
-				}
-				log.Printf("error commenting on pull request (%d): %s", pr.Number, err)
-				continue
-			}
-			// e.GetPullRequest()
 			log.Printf("listener got event: %#v\n", pr.SHA)
 		}
 	}
 }
 
 // HookHandler parses GitHub webhooks and sends an update to corresponding channel
-func HookHandler(prChan chan<- PullRequest) http.HandlerFunc {
+func HookHandler(prChan chan<- *PullRequest) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("webhook called")
 		payload, err := github.ValidatePayload(r, []byte("supersecretstring"))
 		if err != nil {
 			log.Printf("error validating request body: err=%s\n", err)
@@ -86,28 +53,139 @@ func HookHandler(prChan chan<- PullRequest) http.HandlerFunc {
 			log.Printf("could not parse webhook: err=%s\n", err)
 			return
 		}
+		// log.Printf("event: %v", event)
 		switch e := event.(type) {
 		case *github.PullRequestEvent:
 			repoName := strings.Split(*e.GetRepo().FullName, "/")
-			// log.Printf("comments: %v", e.GetPullRequest())
-			prChan <- PullRequest{
+			prChan <- &PullRequest{
 				Owner:  repoName[0],
 				Repo:   repoName[1],
 				Number: *e.GetPullRequest().Number,
 				URL:    e.GetRepo().GetHTMLURL(),
 				SHA:    *e.PullRequest.Head.SHA,
 			}
-		case *github.PullRequestReviewCommentEvent:
-			log.Printf("received PullRequestReviewCommentEvent: %v\n", e)
+		case *github.IssueCommentEvent:
+			body := *e.Comment.Body
+			body = strings.TrimSpace(body)
+			if body != "pullantis apply" {
+				return
+			}
+			log.Printf("%d\n", *e.Issue.Number)
+			client := NewGithubClient()
+			// ctx context.Context, owner string, repo string, number int
+			repoName := strings.Split(*e.GetRepo().FullName, "/")
+			pullRequest, _, err := client.PullRequests.Get(context.Background(), repoName[0], repoName[1], *e.Issue.Number)
+			if err != nil {
+				log.Printf("could not fetch PR: %v\n", err)
+				return
+			}
+			prChan <- &PullRequest{
+				Owner:       repoName[0],
+				Repo:        repoName[1],
+				Number:      *e.Issue.Number,
+				URL:         e.GetRepo().GetHTMLURL(),
+				SHA:         *pullRequest.Head.SHA,
+				ShouldApply: true,
+			}
 		default:
-			log.Printf("unknown event type %s\n", github.WebHookType(r))
+			log.Printf("unknown event type (%T) %s\n", e, github.WebHookType(r))
 			return
 		}
 	}
 }
 
+// NewGithubClient initializes github client
+func NewGithubClient() *github.Client {
+	ctx := context.Background()
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: os.Getenv("GITHUB_AUTH_TOKEN")},
+	)
+	return github.NewClient(oauth2.NewClient(ctx, ts))
+}
+
+// PullRequest wrapper
+type PullRequest struct {
+	Owner       string
+	Repo        string
+	Number      int
+	SHA         string
+	URL         string
+	ShouldApply bool
+	mu          sync.Mutex
+}
+
+func (pr *PullRequest) dir() string {
+	return fmt.Sprintf("./tmp/%s", pr.SHA)
+}
+
+// Process the event
+func (pr *PullRequest) Process() error {
+	pr.mu.Lock()
+	defer pr.mu.Unlock()
+	zipFile, err := pr.DownloadRepoZip("./tmp")
+	if err != nil {
+		return fmt.Errorf("error downloading: %s", err)
+	}
+	_, err = Unzip(*zipFile, pr.dir())
+	if err != nil {
+		return fmt.Errorf("error unziping: %s", err)
+	}
+	msg, succeeded := pr.DryRun()
+	if pr.ShouldApply && succeeded {
+		msg, succeeded = pr.Apply()
+	}
+	err = pr.CreateReview(msg, succeeded)
+	if err != nil {
+		return fmt.Errorf("error reviewing PR %s", err)
+	}
+	return nil
+}
+
+// Apply runs pulumi up for PR
+func (pr *PullRequest) Apply() (string, bool) {
+	cmd := exec.Command("pulumi", "--cwd", pr.dir(), "up")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	_ = cmd.Run()
+	return out.String(), false
+}
+
+// DryRun runs pulumi preview for PR
+func (pr *PullRequest) DryRun() (string, bool) {
+	cmd := exec.Command("pulumi", "--cwd", pr.dir(), "preview")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	err := cmd.Run()
+	return out.String(), err == nil
+}
+
+// CreateReview for pull request
+func (pr *PullRequest) CreateReview(msg string, approve bool) error {
+	client := NewGithubClient()
+	event := "REQUEST_CHANGES"
+	if approve {
+		event = "APPROVE"
+	}
+	newComment := &github.PullRequestReviewRequest{
+		Body:     &msg,
+		CommitID: &pr.SHA,
+		Event:    &event,
+	}
+	// TODO: there is a limit to create review on github need to handle this.
+	_, _, err := client.PullRequests.CreateReview(context.Background(), pr.Owner, pr.Repo, pr.Number, newComment)
+	if err != nil {
+		if er, ok := err.(*github.ErrorResponse); ok {
+			log.Printf("%#v\n", er.Message)
+		}
+		return fmt.Errorf("counld not comment on pull request (%d): %s", pr.Number, err)
+	}
+	return nil
+}
+
 // DownloadRepoZip downloads repo zip and saves it into dst folder
-func (pr PullRequest) DownloadRepoZip(dst string) (*string, error) {
+func (pr *PullRequest) DownloadRepoZip(dst string) (*string, error) {
 	downloadURL := fmt.Sprintf("%s/archive/%s.zip", pr.URL, pr.SHA)
 	resp, err := http.Get(downloadURL)
 	if err != nil {
