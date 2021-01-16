@@ -49,7 +49,7 @@ func listener(prChan chan PullRequest) {
 				&oauth2.Token{AccessToken: os.Getenv("GITHUB_AUTH_TOKEN")},
 			)
 			client := github.NewClient(oauth2.NewClient(ctx, ts))
-			msg := "test comment"
+			msg := "this is a result of `pulumi preview`"
 			newComment := &github.PullRequestReviewRequest{
 				Body:     &msg,
 				CommitID: &pr.SHA,
@@ -60,7 +60,6 @@ func listener(prChan chan PullRequest) {
 				log.Printf("error commenting on pull request (%d): %s", pr.Number, err)
 				continue
 			}
-
 			// e.GetPullRequest()
 			log.Printf("listener got event: %#v\n", pr.SHA)
 		}
