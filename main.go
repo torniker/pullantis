@@ -28,32 +28,17 @@ func main() {
 func listener(prChan chan PullRequest) {
 	for {
 		select {
-		case p := <-prChan:
-			downloadURL := fmt.Sprintf("%s/archive/%s.zip", p.URL, p.SHA)
-			resp, err := http.Get(downloadURL)
+		case pr := <-prChan:
+			zipFile, err := pr.DownloadRepoZip("./tmp")
 			if err != nil {
-				log.Printf("err: %s", err)
-			}
-
-			defer resp.Body.Close()
-			if resp.StatusCode != 200 {
+				log.Printf("error unziping: %s", err)
 				continue
 			}
-			zipFile := fmt.Sprintf("./tmp/%s.zip", p.SHA)
-			out, err := os.Create(zipFile)
-			if err != nil {
-				log.Printf("error creating file: %s", err)
-			}
-			defer out.Close()
-			_, err = io.Copy(out, resp.Body)
-			if err != nil {
-				log.Printf("error copying data into file: %s", err)
-			}
-			_, err = Unzip(zipFile, fmt.Sprintf("./tmp/%s", p.SHA))
+			_, err = Unzip(*zipFile, fmt.Sprintf("./tmp/%s", pr.SHA))
 			if err != nil {
 				log.Printf("error unziping: %s", err)
 			}
-			log.Printf("listener got event: %#v, url: %s\n", p.SHA, downloadURL)
+			log.Printf("listener got event: %#v, url: %s\n", pr.SHA)
 		}
 	}
 }
@@ -86,6 +71,30 @@ func HookHandler(prChan chan<- PullRequest) http.HandlerFunc {
 			return
 		}
 	}
+}
+
+// DownloadRepoZip downloads repo zip and saves it into dst folder
+func (pr PullRequest) DownloadRepoZip(dst string) (*string, error) {
+	downloadURL := fmt.Sprintf("%s/archive/%s.zip", pr.URL, pr.SHA)
+	resp, err := http.Get(downloadURL)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching repo %s", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("bad response status: %s", resp.StatusCode)
+	}
+	zipFile := fmt.Sprintf("%s/%s.zip", dst, pr.SHA)
+	out, err := os.Create(zipFile)
+	if err != nil {
+		return nil, fmt.Errorf("error creating file: %s", err)
+	}
+	defer out.Close()
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error copying data into file: %s", err)
+	}
+	return &zipFile, nil
 }
 
 // Unzip does what is says
