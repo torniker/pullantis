@@ -11,7 +11,7 @@ Please feel free to make as many assumptions, take as many shortcuts, and hardco
 
 # Setup
 
-````
+```
 export GITHUB_AUTH_TOKEN=your_acces_token
 go run .
 ngrok http 9999
