@@ -51,10 +51,12 @@ func listener(prChan chan PullRequest) {
 			client := github.NewClient(oauth2.NewClient(ctx, ts))
 			msg := "test comment"
 			path := ""
+			pos := 0
 			newComment := &github.PullRequestComment{
 				Body:     &msg,
 				CommitID: &pr.SHA,
 				Path:     &path,
+				Position: &pos,
 			}
 			_, _, err = client.PullRequests.CreateComment(context.Background(), pr.Owner, pr.Repo, pr.Number, newComment)
 			if err != nil {
