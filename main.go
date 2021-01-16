@@ -113,10 +113,10 @@ func (pr PullRequest) DryRun() error {
 	cmd.Stdout = &outb
 	cmd.Stderr = &errb
 	err := cmd.Run()
+	fmt.Println("out:", outb.String(), "err:", errb.String())
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("out:", outb.String(), "err:", errb.String())
 	return nil
 }
 
