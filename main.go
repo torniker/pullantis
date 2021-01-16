@@ -59,7 +59,7 @@ func listener(prChan chan PullRequest) {
 			// 	Path:     &path,
 			// 	Position: &pos,
 			// }
-			_, _, err = client.PullRequests.CreateCommentInReplyTo(context.Background(), pr.Owner, pr.Repo, pr.Number, msg, 1)
+			_, _, err = client.PullRequests.CreateCommentInReplyTo(context.Background(), pr.Owner, pr.Repo, pr.Number, msg, int64(pr.Number))
 			if err != nil {
 				log.Printf("error commenting on pull request (%d): %s", pr.Number, err)
 				continue
