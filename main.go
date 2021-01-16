@@ -18,6 +18,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// testing
 func main() {
 	prChan := make(chan *PullRequest)
 	go listener(prChan)
