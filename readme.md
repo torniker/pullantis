@@ -7,3 +7,14 @@ So, when a PR is open, you run Pulumi's equivalent of `terraform plan` against t
 We want your solution to implement some form of queuing mechanism (in-memory is fine) to make sure that you eventually serve all the received requests, but you serve them one at the time, in the same order you received them. This request queue is the only state we want you to keep. Other than that, the tool is expected to be stateless.
 
 Please feel free to make as many assumptions, take as many shortcuts, and hardcode as many things as necessary to make this project a quick hack rather than a masterpiece of software engineering. No unit tests required either, we'll just test it  on a real repo. That said, we actually want you to run Pulumi and pass the output to GitHub.
+
+
+# Setup
+
+````
+export GITHUB_AUTH_TOKEN=your_acces_token
+go run .
+ngrok http 9999
+```
+
+Paste Ngrok URL in webhook. The webhook secret is `supersecretstring`
