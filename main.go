@@ -49,7 +49,10 @@ func listener(prChan chan PullRequest) {
 				&oauth2.Token{AccessToken: "6b1e52821a1779977337966a2b2fd97c108cbdd9"},
 			)
 			client := github.NewClient(oauth2.NewClient(ctx, ts))
-			newComment := &github.PullRequestComment{}
+			msg := "test comment"
+			newComment := &github.PullRequestComment{
+				Body: &msg,
+			}
 			_, _, err = client.PullRequests.CreateComment(context.Background(), pr.Owner, pr.Repo, pr.Number, newComment)
 			if err != nil {
 				log.Printf("error commenting on pull request (%d): %s", pr.Number, err)
@@ -76,7 +79,6 @@ func HookHandler(prChan chan<- PullRequest) http.HandlerFunc {
 			log.Printf("could not parse webhook: err=%s\n", err)
 			return
 		}
-		// log.Printf("received event: %v\n", event)
 		switch e := event.(type) {
 		case *github.PullRequestEvent:
 			repoName := strings.Split(*e.GetRepo().FullName, "/")
