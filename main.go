@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -61,7 +62,14 @@ func listener(prChan chan PullRequest) {
 			_, _, err = client.PullRequests.CreateReview(context.Background(), pr.Owner, pr.Repo, pr.Number, newComment)
 			if err != nil {
 				if er, ok := err.(*github.ErrorResponse); ok {
-					log.Printf("%#v\n", *er.Response)
+					// log.Printf("%#v\n", er.Response.Body)
+					bodyBytes, err := ioutil.ReadAll(er.Response.Body)
+					if err != nil {
+						log.Fatal(err)
+					}
+					bodyString := string(bodyBytes)
+					log.Println(bodyString)
+
 				}
 				log.Printf("error commenting on pull request (%d): %s", pr.Number, err)
 				continue
