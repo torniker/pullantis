@@ -59,6 +59,9 @@ func listener(prChan chan PullRequest) {
 			// ctx context.Context, owner, repo string, number int, review *PullRequestReviewRequest
 			_, _, err = client.PullRequests.CreateReview(context.Background(), pr.Owner, pr.Repo, pr.Number, newComment)
 			if err != nil {
+				if er, ok := err.(*github.ErrorResponse); ok {
+					log.Printf("%#v\n", er)
+				}
 				log.Printf("error commenting on pull request (%d): %s", pr.Number, err)
 				continue
 			}
