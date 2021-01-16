@@ -108,10 +108,10 @@ func (pr PullRequest) Process() error {
 // DryRun runs pulumi preview for PR
 func (pr PullRequest) DryRun() error {
 	out, err := exec.Command("pulumi", "--cwd", pr.dir(), "preview").Output()
+	fmt.Printf("output %s\n", out)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("output %s\n", out)
 	return nil
 }
 
