@@ -51,10 +51,10 @@ func HookHandler(prChan chan<- PullRequest) http.HandlerFunc {
 			log.Printf("could not parse webhook: err=%s\n", err)
 			return
 		}
+		log.Printf("event: %v", event)
 		switch e := event.(type) {
 		case *github.PullRequestEvent:
 			repoName := strings.Split(*e.GetRepo().FullName, "/")
-			// log.Printf("comments: %v", e.GetPullRequest())
 			prChan <- PullRequest{
 				Owner:  repoName[0],
 				Repo:   repoName[1],
