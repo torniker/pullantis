@@ -50,10 +50,7 @@ func listener(prChan chan PullRequest) {
 			)
 			client := github.NewClient(oauth2.NewClient(ctx, ts))
 			msg := "test comment"
-			newComment := &github.PullRequestComment{
-				Body: &msg,
-			}
-			_, _, err = client.PullRequests.CreateComment(context.Background(), pr.Owner, pr.Repo, pr.Number, newComment)
+			_, _, err = client.PullRequests.CreateCommentInReplyTo(context.Background(), pr.Owner, pr.Repo, pr.Number, msg, 1)
 			if err != nil {
 				log.Printf("error commenting on pull request (%d): %s", pr.Number, err)
 				continue
@@ -82,6 +79,7 @@ func HookHandler(prChan chan<- PullRequest) http.HandlerFunc {
 		switch e := event.(type) {
 		case *github.PullRequestEvent:
 			repoName := strings.Split(*e.GetRepo().FullName, "/")
+			log.Printf("comments: %v", e.PullRequest.Comments)
 			prChan <- PullRequest{
 				Owner:  repoName[0],
 				Repo:   repoName[1],
