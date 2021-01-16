@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -98,20 +99,24 @@ func (pr PullRequest) Process() error {
 	if err != nil {
 		return fmt.Errorf("error dry run PR %s", err)
 	}
-	err = pr.CreateReview("review message")
-	if err != nil {
-		return fmt.Errorf("error reviewing PR %s", err)
-	}
+	// err = pr.CreateReview("review message")
+	// if err != nil {
+	// 	return fmt.Errorf("error reviewing PR %s", err)
+	// }
 	return nil
 }
 
 // DryRun runs pulumi preview for PR
 func (pr PullRequest) DryRun() error {
-	out, err := exec.Command("pulumi", "--cwd", pr.dir(), "preview").Output()
-	fmt.Printf("output %s\n", out)
+	cmd := exec.Command("pulumi", "--cwd", pr.dir(), "preview")
+	var outb, errb bytes.Buffer
+	cmd.Stdout = &outb
+	cmd.Stderr = &errb
+	err := cmd.Run()
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
+	fmt.Println("out:", outb.String(), "err:", errb.String())
 	return nil
 }
 
