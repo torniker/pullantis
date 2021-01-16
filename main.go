@@ -49,7 +49,7 @@ func listener(prChan chan PullRequest) {
 				&oauth2.Token{AccessToken: os.Getenv("GITHUB_AUTH_TOKEN")},
 			)
 			client := github.NewClient(oauth2.NewClient(ctx, ts))
-			msg := "this is a result of `pulumi preview`"
+			msg := "this is a result of pulumi preview"
 			newComment := &github.PullRequestReviewRequest{
 				Body:     &msg,
 				CommitID: &pr.SHA,
