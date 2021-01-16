@@ -95,29 +95,22 @@ func (pr PullRequest) Process() error {
 	if err != nil {
 		return fmt.Errorf("error unziping: %s", err)
 	}
-	err = pr.DryRun()
+	msg := pr.DryRun()
+	err = pr.CreateReview(msg)
 	if err != nil {
-		return fmt.Errorf("error dry run PR %s", err)
+		return fmt.Errorf("error reviewing PR %s", err)
 	}
-	// err = pr.CreateReview("review message")
-	// if err != nil {
-	// 	return fmt.Errorf("error reviewing PR %s", err)
-	// }
 	return nil
 }
 
 // DryRun runs pulumi preview for PR
-func (pr PullRequest) DryRun() error {
+func (pr PullRequest) DryRun() string {
 	cmd := exec.Command("pulumi", "--cwd", pr.dir(), "preview")
-	var outb, errb bytes.Buffer
-	cmd.Stdout = &outb
-	cmd.Stderr = &errb
-	err := cmd.Run()
-	fmt.Println("out:", outb.String(), "err:", errb.String())
-	if err != nil {
-		log.Fatal(err)
-	}
-	return nil
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	cmd.Run()
+	return out.String()
 }
 
 // CreateReview for pull request
