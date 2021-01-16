@@ -94,7 +94,10 @@ func (pr PullRequest) Process() error {
 	if err != nil {
 		return fmt.Errorf("error unziping: %s", err)
 	}
-
+	err = pr.DryRun()
+	if err != nil {
+		return fmt.Errorf("error dry run PR %s", err)
+	}
 	err = pr.CreateReview("review message")
 	if err != nil {
 		return fmt.Errorf("error reviewing PR %s", err)
