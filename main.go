@@ -63,7 +63,7 @@ func listener(prChan chan PullRequest) {
 			if err != nil {
 				if er, ok := err.(*github.ErrorResponse); ok {
 					// log.Printf("%#v\n", er.Response.Body)
-					bodyBytes, err := ioutil.ReadAll(er.Response.Body)
+					bodyBytes, err := ioutil.ReadAll((*er.Response).Body)
 					if err != nil {
 						log.Fatal(err)
 					}
