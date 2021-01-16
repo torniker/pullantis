@@ -56,11 +56,12 @@ func listener(prChan chan PullRequest) {
 				CommitID: &pr.SHA,
 				Event:    &event,
 			}
+			// github.ErrorResponse{Response:(*http.Response)(0xc0001941b0), Message:"Unprocessable Entity", Errors:[]github.Error{github.Error{Resource:"", Field:"", Code:"", Message:""}}, Block:(*struct { Reason string "json:\"reason,omitempty\""; CreatedAt *github.Timestamp "json:\"created_at,omitempty\"" })(nil), DocumentationURL:"https://docs.github.com/rest/reference/pulls#create-a-review-for-a-pull-request"}
 			// ctx context.Context, owner, repo string, number int, review *PullRequestReviewRequest
 			_, _, err = client.PullRequests.CreateReview(context.Background(), pr.Owner, pr.Repo, pr.Number, newComment)
 			if err != nil {
 				if er, ok := err.(*github.ErrorResponse); ok {
-					log.Printf("%#v\n", er)
+					log.Printf("%#v\n", *er.Response)
 				}
 				log.Printf("error commenting on pull request (%d): %s", pr.Number, err)
 				continue
