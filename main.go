@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -11,11 +12,15 @@ import (
 	"strings"
 
 	"github.com/google/go-github/github"
+	"golang.org/x/oauth2"
 )
 
 type PullRequest struct {
-	SHA string
-	URL string
+	Owner  string
+	Repo   string
+	Number int
+	SHA    string
+	URL    string
 }
 
 func main() {
@@ -31,14 +36,28 @@ func listener(prChan chan PullRequest) {
 		case pr := <-prChan:
 			zipFile, err := pr.DownloadRepoZip("./tmp")
 			if err != nil {
-				log.Printf("error unziping: %s", err)
+				log.Printf("error downloading: %s", err)
 				continue
 			}
 			_, err = Unzip(*zipFile, fmt.Sprintf("./tmp/%s", pr.SHA))
 			if err != nil {
 				log.Printf("error unziping: %s", err)
+				continue
 			}
-			log.Printf("listener got event: %#v, url: %s\n", pr.SHA)
+			ctx := context.Background()
+			ts := oauth2.StaticTokenSource(
+				&oauth2.Token{AccessToken: "6b1e52821a1779977337966a2b2fd97c108cbdd9"},
+			)
+			client := github.NewClient(oauth2.NewClient(ctx, ts))
+			newComment := &github.PullRequestComment{}
+			_, _, err = client.PullRequests.CreateComment(context.Background(), pr.Owner, pr.Repo, pr.Number, newComment)
+			if err != nil {
+				log.Printf("error commenting on pull request (%d): %s", pr.Number, err)
+				continue
+			}
+
+			// e.GetPullRequest()
+			log.Printf("listener got event: %#v\n", pr.SHA)
 		}
 	}
 }
@@ -61,8 +80,11 @@ func HookHandler(prChan chan<- PullRequest) http.HandlerFunc {
 		switch e := event.(type) {
 		case *github.PullRequestEvent:
 			prChan <- PullRequest{
-				URL: e.GetRepo().GetHTMLURL(),
-				SHA: *e.PullRequest.Head.SHA,
+				Owner:  *e.GetRepo().Organization.Name,
+				Repo:   *e.GetRepo().Name,
+				Number: *e.GetPullRequest().Number,
+				URL:    e.GetRepo().GetHTMLURL(),
+				SHA:    *e.PullRequest.Head.SHA,
 			}
 		case *github.PullRequestReviewCommentEvent:
 			log.Printf("received PullRequestReviewCommentEvent: %v\n", e)
@@ -78,21 +100,21 @@ func (pr PullRequest) DownloadRepoZip(dst string) (*string, error) {
 	downloadURL := fmt.Sprintf("%s/archive/%s.zip", pr.URL, pr.SHA)
 	resp, err := http.Get(downloadURL)
 	if err != nil {
-		return nil, fmt.Errorf("error fetching repo %s", err)
+		return nil, fmt.Errorf("could not fetching repo %s", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("bad response status: %s", resp.StatusCode)
+		return nil, fmt.Errorf("bad response status: %d", resp.StatusCode)
 	}
 	zipFile := fmt.Sprintf("%s/%s.zip", dst, pr.SHA)
 	out, err := os.Create(zipFile)
 	if err != nil {
-		return nil, fmt.Errorf("error creating file: %s", err)
+		return nil, fmt.Errorf("could not create file: %s", err)
 	}
 	defer out.Close()
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("error copying data into file: %s", err)
+		return nil, fmt.Errorf("could not copy data into file: %s", err)
 	}
 	return &zipFile, nil
 }
@@ -110,7 +132,7 @@ func Unzip(src string, dest string) ([]string, error) {
 		fpath := filepath.Join(dest, f.Name)
 		// Check for ZipSlip. More Info: http://bit.ly/2MsjAWE
 		if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
-			return filenames, fmt.Errorf("%s: illegal file path", fpath)
+			return filenames, fmt.Errorf("bad file path: %s", fpath)
 		}
 		filenames = append(filenames, fpath)
 		if f.FileInfo().IsDir() {
