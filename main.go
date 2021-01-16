@@ -50,16 +50,12 @@ func listener(prChan chan PullRequest) {
 			)
 			client := github.NewClient(oauth2.NewClient(ctx, ts))
 			msg := "test comment"
-			// client.PullRequests.GetComment()
-			// path := ""
-			// pos := 0
-			// newComment := &github.PullRequestComment{
-			// 	Body:     &msg,
-			// 	CommitID: &pr.SHA,
-			// 	Path:     &path,
-			// 	Position: &pos,
-			// }
-			_, _, err = client.PullRequests.CreateCommentInReplyTo(context.Background(), pr.Owner, pr.Repo, pr.Number, msg, int64(pr.Number))
+			newComment := &github.PullRequestReviewRequest{
+				Body:     &msg,
+				CommitID: &pr.SHA,
+			}
+			// ctx context.Context, owner, repo string, number int, review *PullRequestReviewRequest
+			_, _, err = client.PullRequests.CreateReview(context.Background(), pr.Owner, pr.Repo, pr.Number, newComment)
 			if err != nil {
 				log.Printf("error commenting on pull request (%d): %s", pr.Number, err)
 				continue
