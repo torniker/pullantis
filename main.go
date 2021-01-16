@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
@@ -8,8 +9,8 @@ import (
 )
 
 type PullRequest struct {
-	SHA  string
-	Repo github.Repository
+	SHA string
+	URL string
 }
 
 func main() {
@@ -23,7 +24,9 @@ func listener(prChan chan PullRequest) {
 	for {
 		select {
 		case p := <-prChan:
-			log.Printf("listener got event: %#v\n", p.SHA)
+			// https://github.com/username/projectname/archive/commitshakey.zip
+			downloadURL := fmt.Sprintf("%s/%s", p.URL, p.SHA)
+			log.Printf("listener got event: %#v, url: %s\n", p.SHA, downloadURL)
 		}
 	}
 }
@@ -46,8 +49,8 @@ func HookHandler(prChan chan<- PullRequest) http.HandlerFunc {
 		switch e := event.(type) {
 		case *github.PullRequestEvent:
 			prChan <- PullRequest{
-				SHA:  *e.PullRequest.Head.SHA,
-				Repo: *e.GetRepo(),
+				URL: e.GetRepo().GetHTMLURL(),
+				SHA: *e.PullRequest.Head.SHA,
 			}
 		case *github.PullRequestReviewCommentEvent:
 			log.Printf("received PullRequestReviewCommentEvent: %v\n", e)
