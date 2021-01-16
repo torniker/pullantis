@@ -70,7 +70,6 @@ func HookHandler(prChan chan<- *PullRequest) http.HandlerFunc {
 			if body != "pullantis apply" {
 				return
 			}
-			log.Printf("%d\n", *e.Issue.Number)
 			client := NewGithubClient()
 			// ctx context.Context, owner string, repo string, number int
 			repoName := strings.Split(*e.GetRepo().FullName, "/")
@@ -92,15 +91,6 @@ func HookHandler(prChan chan<- *PullRequest) http.HandlerFunc {
 			return
 		}
 	}
-}
-
-// NewGithubClient initializes github client
-func NewGithubClient() *github.Client {
-	ctx := context.Background()
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: os.Getenv("GITHUB_AUTH_TOKEN")},
-	)
-	return github.NewClient(oauth2.NewClient(ctx, ts))
 }
 
 // PullRequest wrapper
@@ -206,6 +196,15 @@ func (pr *PullRequest) DownloadRepoZip(dst string) (*string, error) {
 		return nil, fmt.Errorf("could not copy data into file: %s", err)
 	}
 	return &zipFile, nil
+}
+
+// NewGithubClient initializes github client
+func NewGithubClient() *github.Client {
+	ctx := context.Background()
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: os.Getenv("GITHUB_AUTH_TOKEN")},
+	)
+	return github.NewClient(oauth2.NewClient(ctx, ts))
 }
 
 // Unzip does what is says
