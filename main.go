@@ -86,7 +86,6 @@ func (pr PullRequest) dir() string {
 
 // Process the event
 func (pr PullRequest) Process() error {
-
 	zipFile, err := pr.DownloadRepoZip("./tmp")
 	if err != nil {
 		return fmt.Errorf("error downloading: %s", err)
@@ -95,8 +94,8 @@ func (pr PullRequest) Process() error {
 	if err != nil {
 		return fmt.Errorf("error unziping: %s", err)
 	}
-	msg := pr.DryRun()
-	err = pr.CreateReview(msg)
+	msg, succeeded := pr.DryRun()
+	err = pr.CreateReview(msg, succeeded)
 	if err != nil {
 		return fmt.Errorf("error reviewing PR %s", err)
 	}
@@ -104,23 +103,26 @@ func (pr PullRequest) Process() error {
 }
 
 // DryRun runs pulumi preview for PR
-func (pr PullRequest) DryRun() string {
+func (pr PullRequest) DryRun() (string, bool) {
 	cmd := exec.Command("pulumi", "--cwd", pr.dir(), "preview")
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
-	cmd.Run()
-	return out.String()
+	err := cmd.Run()
+	return out.String(), err == nil
 }
 
 // CreateReview for pull request
-func (pr PullRequest) CreateReview(msg string) error {
+func (pr PullRequest) CreateReview(msg string, approve bool) error {
 	ctx := context.Background()
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: os.Getenv("GITHUB_AUTH_TOKEN")},
 	)
 	client := github.NewClient(oauth2.NewClient(ctx, ts))
-	event := "COMMENT"
+	event := "REQUEST_CHANGES"
+	if approve {
+		event = "APPROVE"
+	}
 	newComment := &github.PullRequestReviewRequest{
 		Body:     &msg,
 		CommitID: &pr.SHA,
