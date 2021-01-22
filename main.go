@@ -56,8 +56,20 @@ func HookHandler(prChan chan<- *PullRequest) http.HandlerFunc {
 		// log.Printf("event: %v", event)
 		switch e := event.(type) {
 		case *github.PullRequestEvent:
-			log.Printf("event: %s", *e.Action)
 			repoName := strings.Split(*e.GetRepo().FullName, "/")
+			if *e.Action == "closed" {
+				prChan <- &PullRequest{
+					Owner:         repoName[0],
+					Repo:          repoName[1],
+					Number:        *e.GetPullRequest().Number,
+					URL:           e.GetRepo().GetHTMLURL(),
+					SHA:           *e.PullRequest.Head.SHA,
+					ShouldDestroy: true,
+				}
+				// TODO: some other stuff
+				return
+			}
+			// synchronize
 			prChan <- &PullRequest{
 				Owner:  repoName[0],
 				Repo:   repoName[1],
@@ -96,13 +108,14 @@ func HookHandler(prChan chan<- *PullRequest) http.HandlerFunc {
 
 // PullRequest wrapper
 type PullRequest struct {
-	Owner       string
-	Repo        string
-	Number      int
-	SHA         string
-	URL         string
-	ShouldApply bool
-	mu          sync.Mutex
+	Owner         string
+	Repo          string
+	Number        int
+	SHA           string
+	URL           string
+	ShouldApply   bool
+	ShouldDestroy bool
+	mu            sync.Mutex
 }
 
 func (pr *PullRequest) dir() string {
@@ -121,6 +134,9 @@ func (pr *PullRequest) Process() error {
 	if err != nil {
 		return fmt.Errorf("error unziping: %s", err)
 	}
+	if pr.ShouldDestroy {
+		return pr.Destroy()
+	}
 	msg, succeeded := pr.DryRun()
 	if pr.ShouldApply && succeeded {
 		msg, succeeded = pr.Apply()
@@ -128,6 +144,19 @@ func (pr *PullRequest) Process() error {
 	err = pr.CreateReview(msg, succeeded)
 	if err != nil {
 		return fmt.Errorf("error reviewing PR %s", err)
+	}
+	return nil
+}
+
+// Destroy pulumi destroy
+func (pr *PullRequest) Destroy() error {
+	cmd := exec.Command("pulumi", "--cwd", pr.dir(), "destroy", "--non-interactive", "--yes")
+	var out bytes.Buffer
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = &out
+	_ = cmd.Run()
+	if out.Len() > 0 {
+		return fmt.Errorf("could not destory: %s", out.String())
 	}
 	return nil
 }
