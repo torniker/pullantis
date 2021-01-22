@@ -108,7 +108,7 @@ func (pr *PullRequest) dir() string {
 	return fmt.Sprintf("./tmp/%s", pr.SHA)
 }
 
-// Process the event
+// Process the event testing
 func (pr *PullRequest) Process() error {
 	pr.mu.Lock()
 	defer pr.mu.Unlock()
