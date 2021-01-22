@@ -150,7 +150,8 @@ func (pr *PullRequest) Process() error {
 
 // Destroy pulumi destroy
 func (pr *PullRequest) Destroy() error {
-	cmd := exec.Command("pulumi", "--cwd", pr.dir(), "destroy", "--non-interactive", "--yes")
+	// cmd := exec.Command("pulumi", "--cwd", pr.dir(), "destroy", "--non-interactive", "--yes")
+	cmd := exec.Command("ls")
 	var out bytes.Buffer
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = &out
