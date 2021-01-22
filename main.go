@@ -38,6 +38,7 @@ func listener(prChan chan *PullRequest) {
 	}
 }
 
+// test
 // HookHandler parses GitHub webhooks and sends an update to corresponding channel
 func HookHandler(prChan chan<- *PullRequest) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
