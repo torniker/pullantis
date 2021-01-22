@@ -56,7 +56,7 @@ func HookHandler(prChan chan<- *PullRequest) http.HandlerFunc {
 		// log.Printf("event: %v", event)
 		switch e := event.(type) {
 		case *github.PullRequestEvent:
-			log.Printf("event: %s", e.Action)
+			log.Printf("event: %s", *e.Action)
 			repoName := strings.Split(*e.GetRepo().FullName, "/")
 			prChan <- &PullRequest{
 				Owner:  repoName[0],
